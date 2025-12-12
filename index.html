@@ -1,0 +1,587 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>CPU Process-Scheduling</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<!-- INTER FONT -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+/* -------------------- DARK MODE DESIGN -------------------- */
+:root {
+  --bg: #050816;
+  --bg-card: #0b1020;
+  --bg-card-soft: #111827;
+  --border: #1f2937;
+  --text-main: #e5ecff;
+  --text-muted: #9ca3af;
+  --accent: #3b82f6;
+  --accent-soft: #1d4ed8;
+  --number-blue: #93c5fd;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  max-width: 1150px;
+  margin: 0 auto;
+  padding: 1.5rem;
+  background: radial-gradient(circle at top, #111827 0, var(--bg) 45%, #020617 100%);
+  color: var(--text-main);
+  font-weight: 400;
+  line-height: 1.45;
+}
+
+h1 {
+  margin-bottom: 1.2rem;
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: -0.01em;
+}
+
+/* -------------------- CARDS -------------------- */
+.card {
+  border: 1px solid var(--border);
+  padding: 1.2rem 1.5rem;
+  border-radius: 14px;
+  background: linear-gradient(135deg, var(--bg-card) 0, var(--bg-card-soft) 100%);
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.75);
+  margin-bottom: 1.7rem;
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.1rem;
+  align-items: flex-end;
+  margin-bottom: 1rem;
+}
+
+.controls > div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+label {
+  font-size: 0.95rem;
+  color: var(--text-muted);
+}
+
+select, button {
+  padding: 0.55rem 0.8rem;
+  font-size: 1rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: #020617;
+  color: var(--text-main);
+  outline: none;
+  transition: 0.12s ease;
+}
+
+/* Hover-Effekt auch für Algorithmus-Auswahl */
+select:hover {
+  background: #020b25;
+  box-shadow: 0 0 0 1px rgba(59,130,246,0.4);
+}
+
+button {
+  cursor: pointer;
+  background: linear-gradient(135deg, var(--accent-soft), var(--accent));
+  border: none;
+  box-shadow: 0 10px 25px rgba(37, 99, 235, 0.5);
+  font-weight: 600;
+}
+
+button:hover {
+  filter: brightness(1.07);
+  box-shadow: 0 14px 32px rgba(37, 99, 235, 0.65);
+  transform: translateY(-2px);
+}
+
+#rebuildBtn, #calcBtn {
+  box-shadow: 0 7px 18px rgba(37, 99, 235, 0.38);
+}
+
+#rebuildBtn:hover, #calcBtn:hover {
+  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.48);
+}
+
+/* -------------------- CUSTOM NUMBER INPUT -------------------- */
+.num-wrap {
+  position: relative;
+  width: 150px;
+  margin: 5px auto;
+  cursor: default;
+}
+
+/* Hohes Eingabefeld mit großer Schrift */
+.num-display {
+  width: 100%;
+  height: 56px;
+  padding: 0 0.8rem;
+  padding-right: 48px;
+  background: #020617;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  font-size: 1.22rem;
+  font-weight: 600;
+  color: var(--number-blue);
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  letter-spacing: 0.02em;
+  transition: background 0.12s ease, box-shadow 0.12s ease;
+}
+
+/* Hover = Glow */
+.num-wrap:hover .num-display {
+  background: #020b25;
+  box-shadow: 0 0 0 1px rgba(59,130,246,0.45);
+}
+
+/* Pfeil-Buttons */
+.arrow-up, .arrow-down {
+  position: absolute;
+  right: 6px;
+  width: 42px;
+  height: 20px;
+  background: linear-gradient(135deg, var(--accent-soft), var(--accent));
+  border-radius: 7px;
+  cursor: pointer;
+  text-align: center;
+  line-height: 20px;
+  color: white;
+  font-size: 12px;
+  user-select: none;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.8);
+  transition: transform 0.08s ease, filter 0.1s ease, box-shadow 0.1s ease;
+}
+
+.arrow-up   { top: 6px; }
+.arrow-down { bottom: 6px; }
+
+.arrow-up:hover, .arrow-down:hover {
+  filter: brightness(1.08);
+  box-shadow: 0 3px 9px rgba(37, 99, 235, 0.8);
+}
+
+.arrow-up:active, .arrow-down:active {
+  transform: translateY(1px);
+}
+
+/* -------------------- TABLES -------------------- */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: rgba(15, 23, 42, 0.9);
+  border-radius: 12px;
+  overflow: hidden;
+  margin-top: 0.5rem;
+}
+
+th, td {
+  border: 1px solid #111827;
+  padding: 0.45rem 0.55rem;
+  text-align: center;
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
+th {
+  background: #020617;
+  color: #c7d2fe;
+  font-size: 1rem;
+}
+
+/* Gantt minimal column width */
+.gantt-table th, .gantt-table td {
+  min-width: 36px;
+}
+
+.cell-active {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 700;
+}
+
+/* Wait-/Answer-Time Block */
+.avg-row {
+  margin-top: 1.1rem;
+  font-size: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  max-width: 520px;
+  color: #e5ecff;
+}
+
+.avg-row-block {
+  border-top: 1px solid var(--border);
+  padding-top: 0.6rem;
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.avg-row-block strong {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-size: 1.05rem;
+  color: #bfdbfe;
+}
+
+.avg-row-block .formula {
+  color: var(--text-muted);
+  font-size: 0.92rem;
+  margin-left: 6px;
+  line-height: 1.35;
+}
+</style>
+</head>
+<body>
+
+<h1>CPU Process-Scheduling</h1>
+
+<!-- ---------------- INPUT SECTION ---------------- -->
+<div class="card">
+  <div class="controls">
+
+    <div>
+      <label>Anzahl der Prozesse</label>
+      <div class="num-wrap">
+        <div class="num-display" data-min="1" data-max="20" id="processCount">5</div>
+        <div class="arrow-up"   onclick="spin('processCount', +1)">▲</div>
+        <div class="arrow-down" onclick="spin('processCount', -1)">▼</div>
+      </div>
+    </div>
+
+    <div>
+      <label>Algorithmus</label>
+      <select id="algorithm">
+        <option value="fcfs">First Come First Serve</option>
+        <option value="sjf">Shortest Job First</option>
+        <option value="rr3">Round Robin - 3 Einheiten</option>
+        <option value="prio">Priority Scheduling</option>
+      </select>
+    </div>
+
+    <div>
+      <button id="rebuildBtn">Tabelle neu erstellen</button>
+    </div>
+
+    <div>
+      <button id="calcBtn">Berechnen</button>
+    </div>
+
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Prozess</th>
+        <th>Ankunftszeit</th>
+        <th>Dauer (Burst)</th>
+        <th>Priorität</th>
+      </tr>
+    </thead>
+    <tbody id="inputBody"></tbody>
+  </table>
+</div>
+
+<!-- ---------------- OUTPUT SECTION ---------------- -->
+<div class="card">
+  <h2 id="resultTitle" style="font-weight:600;font-size:1.3rem;margin-bottom:1rem;">Ergebnis</h2>
+
+  <div class="gantt-container">
+    <table class="gantt-table">
+      <thead id="ganttHead"></thead>
+      <tbody id="ganttBody"></tbody>
+    </table>
+  </div>
+
+  <div class="avg-row">
+    <div id="avgWait"   class="avg-row-block"></div>
+    <div id="avgAnswer" class="avg-row-block"></div>
+  </div>
+</div>
+<script>
+/* ---------------- CUSTOM SPINNER FUNKTION ---------------- */
+function spin(id, dir) {
+  const el  = document.getElementById(id);
+  let value = parseInt(el.textContent);
+  const min = parseInt(el.dataset.min);
+  const max = parseInt(el.dataset.max);
+
+  value += dir;
+  if (value < min) value = min;
+  if (value > max) value = max;
+
+  el.textContent = value;
+}
+
+function spinCell(el, dir) {
+  const disp = el.parentElement.querySelector(".num-display");
+  let v = parseInt(disp.textContent);
+  const min = parseInt(disp.dataset.min);
+  const max = parseInt(disp.dataset.max);
+
+  v += dir;
+  if (v < min) v = min;
+  if (v > max) v = max;
+
+  disp.textContent = v;
+}
+
+/* ---------------- INPUT TABLE ---------------- */
+const inputBody = document.getElementById("inputBody");
+
+function createNumberCell(value, type) {
+  return `
+    <div class="num-wrap">
+      <div class="num-display num-${type}" data-min="1" data-max="99">${value}</div>
+      <div class="arrow-up"   onclick="spinCell(this, +1)">▲</div>
+      <div class="arrow-down" onclick="spinCell(this, -1)">▼</div>
+    </div>
+  `;
+}
+
+function buildInputTable(n) {
+  inputBody.innerHTML = "";
+  n = Math.max(1, Math.min(20, n));
+
+  for (let i = 1; i <= n; i++) {
+    const tr = document.createElement("tr");
+    tr.dataset.pid = i;
+
+    tr.innerHTML = `
+      <td>P${i}</td>
+      <td>${createNumberCell(i,  "arrival")}</td>
+      <td>${createNumberCell(3,  "burst")}</td>
+      <td>${createNumberCell(i,  "prio")}</td>
+    `;
+
+    inputBody.appendChild(tr);
+  }
+}
+
+/* ---------------- PROZESSE LESEN ---------------- */
+function readProcesses() {
+  const rows = [...document.querySelectorAll("#inputBody tr")];
+  const processes = [];
+  let totalBurst = 0;
+
+  for (const r of rows) {
+    const pid     = +r.dataset.pid;
+    const arrival = +r.querySelector(".num-arrival").textContent;
+    const burst   = +r.querySelector(".num-burst").textContent;
+    const prio    = +r.querySelector(".num-prio").textContent;
+
+    totalBurst += burst;
+    processes.push({ pid, arrival, burst, prio });
+  }
+
+  if (totalBurst > 18) {
+    alert("Maximale Gesamtdauer: 18 Einheiten.");
+    return null;
+  }
+
+  return processes;
+}
+
+/* ---------------- ALGORITHMEN ---------------- */
+function scheduleFCFS(procs) {
+  const arr = [...procs].sort((a,b)=>a.arrival-b.arrival||a.pid-b.pid);
+  let time = Math.min(...arr.map(p=>p.arrival));
+  const seg=[], stats=[];
+  for (const p of arr) {
+    if (time < p.arrival) time = p.arrival;
+    const start=time, finish=start+p.burst;
+    seg.push({pid:p.pid,start,finish});
+    stats.push({pid:p.pid,waiting:start-p.arrival,turnaround:finish-p.arrival});
+    time=finish;
+  }
+  return {segments:seg,stats};
+}
+
+function scheduleSJF(procs) {
+  const rem=procs.map(p=>({...p}));
+  const seg=[],stats=[];
+  let time=Math.min(...rem.map(p=>p.arrival));
+  while (rem.length) {
+    const avail=rem.filter(p=>p.arrival<=time);
+    if (!avail.length) { time=Math.min(...rem.map(p=>p.arrival)); continue; }
+    avail.sort((a,b)=>
+      a.burst-b.burst ||
+      a.prio-b.prio ||
+      a.arrival-b.arrival ||
+      a.pid-b.pid
+    );
+    const p=avail[0];
+    rem.splice(rem.indexOf(p),1);
+    const start=Math.max(time,p.arrival), finish=start+p.burst;
+    seg.push({pid:p.pid,start,finish});
+    stats.push({pid:p.pid,waiting:start-p.arrival,turnaround:finish-p.arrival});
+    time=finish;
+  }
+  return {segments:seg,stats};
+}
+
+function schedulePriority(procs) {
+  const rem=procs.map(p=>({...p}));
+  const seg=[],stats=[];
+  let time=Math.min(...rem.map(p=>p.arrival));
+  while (rem.length) {
+    const avail=rem.filter(p=>p.arrival<=time);
+    if (!avail.length) { time=Math.min(...rem.map(p=>p.arrival)); continue; }
+    avail.sort((a,b)=>
+      a.prio-b.prio ||
+      a.arrival-b.arrival ||
+      a.pid-b.pid
+    );
+    const p=avail[0];
+    rem.splice(rem.indexOf(p),1);
+    const start=Math.max(time,p.arrival), finish=start+p.burst;
+    seg.push({pid:p.pid,start,finish});
+    stats.push({pid:p.pid,waiting:start-p.arrival,turnaround:finish-p.arrival});
+    time=finish;
+  }
+  return {segments:seg,stats};
+}
+
+function scheduleRR3(procs) {
+  const q=3;
+  const rem=new Map(procs.map(p=>[p.pid,p.burst]));
+  const finish=new Map();
+  const seg=[];
+  let time=Math.min(...procs.map(p=>p.arrival));
+  const queue=[], added=new Set();
+
+  function addArrived() {
+    const newp=procs.filter(p=>p.arrival<=time && !added.has(p.pid))
+                    .sort((a,b)=>a.arrival-b.arrival||a.pid-b.pid);
+    newp.forEach(p=>{queue.push(p.pid);added.add(p.pid);});
+  }
+
+  addArrived();
+
+  while (finish.size < procs.length) {
+    if (!queue.length) {
+      time=Math.min(...procs.filter(p=>!finish.has(p.pid)).map(p=>p.arrival));
+      addArrived();
+      continue;
+    }
+
+    const pid=queue.shift();
+    if (rem.get(pid)<=0) continue;
+
+    const run=Math.min(q,rem.get(pid));
+    const start=time, end=time+run;
+    seg.push({pid,start,finish:end});
+    time=end;
+
+    rem.set(pid,rem.get(pid)-run);
+    addArrived();
+
+    if (rem.get(pid)>0) queue.push(pid);
+    else finish.set(pid,time);
+  }
+
+  const stats=[];
+  for (const p of procs) {
+    const t=finish.get(p.pid);
+    const turn=t-p.arrival;
+    stats.push({pid:p.pid,waiting:turn-p.burst,turnaround:turn});
+  }
+
+  return {segments:seg,stats};
+}
+
+/* ---------------- GANTT-AUSGABE + DURCHSCHNITTE ---------------- */
+function buildGantt(segments,stats) {
+  const head=document.getElementById("ganttHead");
+  const body=document.getElementById("ganttBody");
+  const avgWaitEl = document.getElementById("avgWait");
+  const avgAnsEl  = document.getElementById("avgAnswer");
+
+  head.innerHTML=""; 
+  body.innerHTML="";
+  avgWaitEl.innerHTML = "";
+  avgAnsEl.innerHTML  = "";
+
+  let h="<tr><th>Zeit</th>";
+  for (let t=1;t<=18;t++) h+=`<th>${t}</th>`;
+  h+="</tr>";
+  head.innerHTML=h;
+
+  const pids=[...new Set(segments.map(s=>s.pid))].sort((a,b)=>a-b);
+  for (const pid of pids) {
+    let row=`<tr><td>P${pid}</td>`;
+    for (let t=1;t<=18;t++) {
+      const active=segments.some(s=>s.pid===pid && t>=s.start && t<s.finish);
+      row+= active ? `<td class="cell-active">X</td>` : "<td></td>";
+    }
+    row+="</tr>";
+    body.innerHTML+=row;
+  }
+
+  if (!stats.length) return;
+
+  // Wait-Time-Rechnung
+  const waits = stats.map(s=>s.waiting);
+  const sumWait = waits.reduce((a,b)=>a+b,0);
+  const avgWait = sumWait / waits.length;
+
+  avgWaitEl.innerHTML =
+    `<strong>Ø Wait Time</strong>` +
+    `<div class="formula">${waits.join(" + ")} = ${sumWait}<br>` +
+    `${sumWait} / ${waits.length} = ${avgWait.toFixed(2)} ms</div>`;
+
+  // Answer-Time-Rechnung (Turnaround)
+  const ans = stats.map(s=>s.turnaround);
+  const sumAns = ans.reduce((a,b)=>a+b,0);
+  const avgAns = sumAns / ans.length;
+
+  avgAnsEl.innerHTML =
+    `<strong>Ø Answer Time</strong>` +
+    `<div class="formula">${ans.join(" + ")} = ${sumAns}<br>` +
+    `${sumAns} / ${ans.length} = ${avgAns.toFixed(2)} ms</div>`;
+}
+
+/* ---------------- EVENTS & INIT ---------------- */
+document.getElementById("rebuildBtn").onclick = () => {
+  const n = parseInt(document.getElementById("processCount").textContent);
+  buildInputTable(n || 5);
+};
+
+document.getElementById("calcBtn").onclick = () => {
+  const procs = readProcesses();
+  if (!procs) return;
+
+  const select = document.getElementById("algorithm");
+  const algoMap = {
+    fcfs: scheduleFCFS,
+    sjf:  scheduleSJF,
+    rr3:  scheduleRR3,
+    prio: schedulePriority
+  };
+  const out = algoMap[select.value](procs);
+
+  document.getElementById("resultTitle").textContent =
+    "Ergebnis: " + select.options[select.selectedIndex].text;
+
+  buildGantt(out.segments, out.stats);
+};
+
+buildInputTable(5);
+</script>
+
+</body>
+</html>
